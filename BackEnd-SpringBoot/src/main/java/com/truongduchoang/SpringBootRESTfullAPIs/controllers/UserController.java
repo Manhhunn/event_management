@@ -22,7 +22,6 @@ import com.truongduchoang.SpringBootRESTfullAPIs.services.UserService;
 import jakarta.validation.Valid;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class UserController {
    public final UserService userService;
 
