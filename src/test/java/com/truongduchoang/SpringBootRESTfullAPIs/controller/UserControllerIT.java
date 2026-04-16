@@ -1,7 +1,13 @@
 package com.truongduchoang.SpringBootRESTfullAPIs.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -17,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.truongduchoang.SpringBootRESTfullAPIs.models.ApiResponse;
 import com.truongduchoang.SpringBootRESTfullAPIs.models.User;
 import com.truongduchoang.SpringBootRESTfullAPIs.repository.UserRepository;
 
@@ -24,105 +31,218 @@ import com.truongduchoang.SpringBootRESTfullAPIs.repository.UserRepository;
 @AutoConfigureMockMvc
 @Transactional
 public class UserControllerIT {
-    @Autowired
-    private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @Autowired
-    private UserRepository userRepository;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @BeforeEach
-    public void init() {
-        this.userRepository.deleteAll();
-    }
+        @Autowired
+        private UserRepository userRepository;
 
-    @Test
-    public void createUser_shouldReturnUser_whenUserValid() throws Exception {
-        User inputUser = new User(null, "demo9@gmail.com", "duc hoang");
+        @BeforeEach
+        public void init() {
+                this.userRepository.deleteAll();
+        }
 
-        String resultStr = mockMvc.perform(
-                post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(inputUser)))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
+        @Test
+        public void createUser_shouldReturnUser_whenUserValid() throws Exception {
+                User inputUser = new User(null, "demo9@gmail.com", "duc hoang");
 
-        System.out.println("resultStr: " + resultStr);
+                String resultStr = mockMvc.perform(
+                                post("/users")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(inputUser)))
+                                .andExpect(status().isCreated())
+                                .andReturn().getResponse().getContentAsString();
 
-        User outputUser = objectMapper.readValue(resultStr, User.class);
-        assertEquals(inputUser.getName(), outputUser.getName());
-    }
+                ApiResponse<User> response = objectMapper.readValue(
+                                resultStr,
+                                new TypeReference<ApiResponse<User>>() {
+                                });
 
-    @Test
-    public void getAllUsers() throws Exception {
-        User u1 = new User(null, "demo3@gmail.com", "duc hoang u1");
-        User u2 = new User(null, "demo4@gmail.com", "duc hoang u2");
-        List<User> listUser = List.of(u1, u2);
-        this.userRepository.saveAll(listUser);
+                assertEquals("Success", response.getStatus(), "Status phải là 'success'");
+                assertNotNull(response.getMessage(), "Message không được null");
+                assertTrue(response.getData() instanceof User,
+                                "Data phải là User, nhưng nhận được: " + response.getData().getClass().getSimpleName());
+                assertNull(response.getErrorCode());
 
-        String resultStr = this.mockMvc.perform(get("/users")).andExpect(status().isOk()).andReturn().getResponse()
-                .getContentAsString();
+                assertEquals(inputUser.getName(), response.getData().getName(), "Tên user không khớp");
+                assertEquals(inputUser.getEmail(), response.getData().getEmail(), "Email user không khớp");
+                assertNull(response.getErrorCode(), "Error Code phải là null khi thành công!");
+                assertNotNull(response.getTimeStamp(), "TimeStamp không được null");
+        }
 
-        List<User> resultListUser = this.objectMapper.readValue(resultStr, new TypeReference<List<User>>() {
-        });
+        @Test
+        public void getAllUsers() throws Exception {
+                User u1 = new User(null, "demo3@gmail.com", "duc hoang u1");
+                User u2 = new User(null, "demo4@gmail.com", "duc hoang u2");
+                this.userRepository.saveAll(List.of(u1, u2));
 
-        assertEquals(2, resultListUser.size());
-        assertEquals("demo3@gmail.com", resultListUser.get(0).getEmail());
-    }
+                String resultStr = this.mockMvc.perform(get("/users"))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
-    @Test
-    public void getUserById() throws Exception {
-        this.userRepository.deleteAll();
-        User u1 = new User(null, "demo3@gmail.com", "name get by id");
-        User inputUser = this.userRepository.saveAndFlush(u1);
+                ApiResponse<List<User>> response = this.objectMapper.readValue(
+                                resultStr,
+                                new TypeReference<ApiResponse<List<User>>>() {
+                                });
 
-        String resultStr = this.mockMvc.perform(get("/users/{id}", inputUser.getId())).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                assertEquals("Success", response.getStatus(), "Status phải là 'Success'");
+                assertNotNull(response.getMessage(), "Message không được null");
+                assertNotNull(response.getData(), "Data không được null");
+                assertNull(response.getErrorCode(), "ErrorCode phải là null");
+                assertNotNull(response.getTimeStamp(), "TimeStamp không được null");
+                assertEquals(2, response.getData().size(), "Số lượng user không đúng");
+                assertEquals("demo3@gmail.com", response.getData().get(0).getEmail(), "Email user 1 không đúng");
+                assertEquals("demo4@gmail.com", response.getData().get(1).getEmail(), "Email user 2 không đúng");
+        }
 
-        User outputUser = this.objectMapper.readValue(resultStr, User.class);
+        @Test
+        public void getUserById() throws Exception {
+                User u1 = new User(null, "demo3@gmail.com", "name get by id");
+                User inputUser = this.userRepository.saveAndFlush(u1);
 
-        assertEquals("name get by id", outputUser.getName());
-    }
+                String resultStr = this.mockMvc.perform(get("/users/{id}", inputUser.getId()))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
-    @Test
-    public void getUserById_shouldEmpty_whenIdNotFound() throws Exception {
-        this.mockMvc.perform(get("/users/{id}", 0)).andExpect(status().isNotFound());
-    }
+                ApiResponse<User> response = this.objectMapper.readValue(
+                                resultStr,
+                                new TypeReference<ApiResponse<User>>() {
+                                });
 
-    @Test
-    public void updateUser() throws Exception {
-        this.userRepository.deleteAll();
-        User user = new User(null, "oldGmail@gmail.com", "old name");
-        User inputUser = this.userRepository.saveAndFlush(user);
+                assertEquals("Success", response.getStatus(), "Status phải là 'Success'");
+                assertNotNull(response.getMessage(), "Message không được null");
+                assertNotNull(response.getData(), "Data không được null");
+                assertNull(response.getErrorCode(), "ErrorCode phải là null");
+                assertNotNull(response.getTimeStamp(), "TimeStamp không được null");
+                assertEquals("name get by id", response.getData().getName(), "Tên user không đúng");
+                assertEquals("demo3@gmail.com", response.getData().getEmail(), "Email user không đúng");
+        }
 
-        User updateUser = new User(inputUser.getId(), "newGmail@gmail.com", "new name");
+        @Test
+        public void getUserById_shouldReturnError_whenIdNotFound() throws Exception {
+                long nonExistentId = 0L;
 
-        String resultStr = mockMvc.perform(
-                put("/users/{id}", inputUser.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(updateUser)))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                String resultStr = this.mockMvc.perform(get("/users/{id}", nonExistentId))
+                                .andExpect(status().isNotFound())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
-        System.out.println("resultStr: " + resultStr);
+                ApiResponse<User> response = this.objectMapper.readValue(
+                                resultStr,
+                                new TypeReference<ApiResponse<User>>() {
+                                });
 
-        User outputUser = objectMapper.readValue(resultStr, User.class);
-        assertEquals("new name", outputUser.getName());
-    }
+                assertEquals("Error", response.getStatus(), "Status phải là error");
+                assertNotNull(response.getMessage(), "Message không được null");
+                assertNull(response.getData(), "Data phải là null khi lỗi");
+                assertEquals("USER_NOT_FOUND", response.getErrorCode(), "ErrorCode không đúng");
+                assertNotNull(response.getTimeStamp(), "Timestamp không được null!");
+        }
 
-    @Test
-    public void deleteUser() throws Exception {
-        this.userRepository.deleteAll();
-        User u = new User(null, "delete@gmail.com", "delete name");
-        User inputUser = this.userRepository.saveAndFlush(u);
+        @Test
+        public void updateUser() throws Exception {
+                User user = new User(null, "oldGmail@gmail.com", "old name");
+                User inputUser = this.userRepository.saveAndFlush(user);
 
-        this.mockMvc.perform(delete("/users/{id}", inputUser.getId()).contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNoContent());
+                User updateUser = new User(inputUser.getId(), "newGmail@gmail.com", "new name");
 
-        long countDB = this.userRepository.count();
+                String resultStr = mockMvc.perform(
+                                put("/users/{id}", inputUser.getId())
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(updateUser)))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
 
-        assertEquals(0, countDB);
-    }
+                ApiResponse<User> response = objectMapper.readValue(
+                                resultStr,
+                                new TypeReference<ApiResponse<User>>() {
+                                });
+
+                assertEquals("Success", response.getStatus(), "Status phải là 'success'");
+                assertNotNull(response.getMessage(), "Message không được null");
+                assertNotNull(response.getData(), "Data không được null!");
+                assertTrue(response.getData() instanceof User,
+                                "Data phải là User, nhưng nhận được: " + response.getData().getClass().getSimpleName());
+                assertEquals("new name", response.getData().getName(), "Tên user không khớp");
+                assertEquals("newGmail@gmail.com", response.getData().getEmail(), "Email user không khớp");
+                assertNull(response.getErrorCode(), "ErrorCode phải là null khi thành công!");
+                assertNotNull(response.getTimeStamp(), "TimeStamp không được null");
+        }
+
+        @Test
+        public void updateUser_shouldReturnError_whenIdNotFound() throws Exception {
+                long nonExistentId = 999L;
+                User updateUser = new User(nonExistentId, "newGmail@gmail.com", "new name");
+
+                String resultStr = mockMvc.perform(
+                                put("/users/{id}", nonExistentId)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsBytes(updateUser)))
+                                .andExpect(status().isNotFound())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                ApiResponse<User> response = objectMapper.readValue(
+                                resultStr,
+                                new TypeReference<ApiResponse<User>>() {
+                                });
+
+                assertEquals("Error", response.getStatus(), "Status phải là 'error'");
+                assertNotNull(response.getMessage(), "Message không được null");
+                assertNull(response.getData(), "Data phải là null khi lỗi");
+                assertEquals("USER_NOT_FOUND", response.getErrorCode(), "ErrorCode không đúng");
+                assertNotNull(response.getTimeStamp(), "TimeStamp không được null!");
+        }
+
+        @Test
+        public void deleteUser() throws Exception {
+                User u = new User(null, "delete@gmail.com", "delete name");
+                User inputUser = this.userRepository.saveAndFlush(u);
+
+                String resultStr = this.mockMvc.perform(
+                                delete("/users/{id}", inputUser.getId())
+                                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNoContent())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString();
+
+                if (!resultStr.isEmpty()) {
+                        ApiResponse<Void> response = objectMapper.readValue(
+                                        resultStr,
+                                        new TypeReference<ApiResponse<Void>>() {
+                                        });
+
+                        assertEquals("Success", response.getStatus(), "Status phải là 'success'");
+                        assertNotNull(response.getMessage(), "Message không được null");
+                        assertNull(response.getData(), "Data phải là null khi xoá");
+                        assertNull(response.getErrorCode(), "ErrorCode phải là null khi thành công");
+                        assertNotNull(response.getTimeStamp(), "TimeStamp không được null!");
+                }
+
+                long countDB = this.userRepository.count();
+                assertEquals(0, countDB, "Database phải không còn user sau khi xoá");
+        }
+
+        @Test
+        public void deleteUser_shouldReturnError_whenIdNotFound() throws Exception {
+                long nonExistentId = 999L;
+
+                this.mockMvc.perform(
+                                delete("/users/{id}", nonExistentId)
+                                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isInternalServerError());
+        }
 }

@@ -19,7 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.truongduchoang.SpringBootRESTfullAPIs.models.User;
 import com.truongduchoang.SpringBootRESTfullAPIs.repository.UserRepository;
-import com.truongduchoang.SpringBootRESTfullAPIs.services.UserService;
+import com.truongduchoang.SpringBootRESTfullAPIs.services.impl.UserServiceImpl;
 
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
@@ -28,7 +28,7 @@ public class UserServiceTest {
     private UserRepository userRepository;
 
     @InjectMocks
-    private UserService userService;
+    private UserServiceImpl userService;
 
     @Test
     public void createUser_shouldReturnUser_whenEmailValid() {
