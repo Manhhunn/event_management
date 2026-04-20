@@ -17,8 +17,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.truongduchoang.SpringBootRESTfullAPIs.dto.request.UserCreateRequest;
+import com.truongduchoang.SpringBootRESTfullAPIs.dto.request.UserUpdateRequest;
+import com.truongduchoang.SpringBootRESTfullAPIs.dto.response.UserResponse;
+import com.truongduchoang.SpringBootRESTfullAPIs.errors.DuplicateResourceException;
+import com.truongduchoang.SpringBootRESTfullAPIs.errors.ResourceNotFoundException;
+import com.truongduchoang.SpringBootRESTfullAPIs.mapper.UserMapper;
 import com.truongduchoang.SpringBootRESTfullAPIs.models.User;
+import com.truongduchoang.SpringBootRESTfullAPIs.repository.RoleRepository;
 import com.truongduchoang.SpringBootRESTfullAPIs.repository.UserRepository;
+import com.truongduchoang.SpringBootRESTfullAPIs.services.CloudinaryService;
 import com.truongduchoang.SpringBootRESTfullAPIs.services.impl.UserServiceImpl;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +34,15 @@ public class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
+    private UserMapper userMapper;
+
+    @Mock
+    private CloudinaryService cloudinaryService;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -115,5 +132,112 @@ public class UserServiceTest {
         User resultUser = this.userService.updateUser(inputId, inputUser);
 
         assertEquals("new name", resultUser.getName());
+    }
+
+    @Test
+    public void createApiUser_shouldReturnUserResponse_whenEmailValid() {
+        UserCreateRequest request = new UserCreateRequest();
+        request.setFullName("duc hoang");
+        request.setEmail("api@gmail.com");
+
+        User user = new User(null, "api@gmail.com", "duc hoang");
+        User savedUser = new User(1L, "api@gmail.com", "duc hoang");
+        UserResponse outputResponse = new UserResponse();
+        outputResponse.setUserId(1L);
+        outputResponse.setEmail("api@gmail.com");
+
+        when(this.userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(this.userMapper.toEntity(request, null)).thenReturn(user);
+        when(this.userRepository.save(user)).thenReturn(savedUser);
+        when(this.userMapper.toResponse(savedUser)).thenReturn(outputResponse);
+
+        UserResponse resultUser = this.userService.createUser(request, null);
+
+        assertEquals(1L, resultUser.getUserId());
+        assertEquals("api@gmail.com", resultUser.getEmail());
+    }
+
+    @Test
+    public void createApiUser_shouldThrowException_whenEmailDuplicated() {
+        UserCreateRequest request = new UserCreateRequest();
+        request.setFullName("duc hoang");
+        request.setEmail("api@gmail.com");
+
+        when(this.userRepository.existsByEmail(request.getEmail())).thenReturn(true);
+
+        Exception ex = assertThrows(DuplicateResourceException.class, () -> {
+            this.userService.createUser(request, null);
+        });
+
+        assertEquals("Email already exists", ex.getMessage());
+    }
+
+    @Test
+    public void getUserResponseById_shouldReturnUserResponse_whenUserExist() {
+        Long inputId = 1L;
+        User inputUser = new User(1L, "demo@gmail.com", "Truong DuC Hoang");
+        UserResponse outputResponse = new UserResponse();
+        outputResponse.setUserId(1L);
+        outputResponse.setEmail("demo@gmail.com");
+
+        when(this.userRepository.findById(inputId)).thenReturn(Optional.of(inputUser));
+        when(this.userMapper.toResponse(inputUser)).thenReturn(outputResponse);
+
+        UserResponse resultUser = this.userService.getUserResponseById(inputId);
+
+        assertEquals(1L, resultUser.getUserId());
+        assertEquals("demo@gmail.com", resultUser.getEmail());
+    }
+
+    @Test
+    public void getUserResponseById_shouldThrowException_whenUserNotExist() {
+        Long inputId = 1L;
+        when(this.userRepository.findById(inputId)).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(ResourceNotFoundException.class, () -> {
+            this.userService.getUserResponseById(inputId);
+        });
+
+        assertEquals("User with id 1 not found", ex.getMessage());
+    }
+
+    @Test
+    public void updateApiUser_shouldReturnUserResponse_whenValid() {
+        Long inputId = 1L;
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("new@gmail.com");
+        request.setFullName("new name");
+
+        User inputUser = new User(1L, "old@gmail.com", "old name");
+        User savedUser = new User(1L, "new@gmail.com", "new name");
+        UserResponse outputResponse = new UserResponse();
+        outputResponse.setUserId(1L);
+        outputResponse.setEmail("new@gmail.com");
+
+        when(this.userRepository.findById(inputId)).thenReturn(Optional.of(inputUser));
+        when(this.userRepository.existsByEmailAndUserIdNot(request.getEmail(), inputId)).thenReturn(false);
+        when(this.userRepository.save(inputUser)).thenReturn(savedUser);
+        when(this.userMapper.toResponse(savedUser)).thenReturn(outputResponse);
+
+        UserResponse resultUser = this.userService.updateUser(inputId, request, null);
+
+        assertEquals("new@gmail.com", resultUser.getEmail());
+    }
+
+    @Test
+    public void updateApiUser_shouldThrowException_whenEmailDuplicated() {
+        Long inputId = 1L;
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("new@gmail.com");
+
+        User inputUser = new User(1L, "old@gmail.com", "old name");
+        when(this.userRepository.findById(inputId)).thenReturn(Optional.of(inputUser));
+        when(this.userRepository.existsByEmailAndUserIdNot(request.getEmail(), inputId)).thenReturn(true);
+
+        Exception ex = assertThrows(DuplicateResourceException.class, () -> {
+            this.userService.updateUser(inputId, request, null);
+        });
+
+        assertEquals("Email already exists", ex.getMessage());
     }
 }
